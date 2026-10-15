@@ -1,0 +1,1504 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>월별 업무 추진 일정표 (스마트 달력 & 간트 Planner)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Identity Services: Google 계정 인증 -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Google Fonts: Noto Sans KR -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Noto Sans KR', 'sans-serif'],
+                    },
+                    colors: {
+                        corp: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            200: '#bbf7d0',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f1f5f9;
+            color: #1e293b;
+        }
+
+        /* Calendar Cell Styling */
+        .calendar-day-cell {
+            min-height: 115px;
+            transition: background-color 0.15s ease;
+        }
+        .calendar-day-cell:hover {
+            background-color: #f8fafc;
+        }
+
+        /* Custom Scrollbars */
+        .custom-scroll::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Timeline Cell Dragging & Highlight */
+        .day-cell {
+            user-select: none;
+            transition: all 0.1s ease;
+        }
+        .day-cell:hover {
+            background-color: #cbd5e1;
+            cursor: pointer;
+        }
+
+        /* Mobile screen optimization (print rules below remain unchanged) */
+        @media screen and (max-width: 767px) {
+            body { padding: 8px !important; }
+            #mainToolbar { padding: 10px !important; gap: 10px !important; }
+            #mainToolbar > div { width: 100%; }
+            #mainToolbar .month-controls { flex-wrap: wrap; width: 100%; }
+            #mainToolbar button, #mainToolbar select { min-height: 40px; }
+            #quickMonthContainer { width: 100%; justify-content: space-between; }
+            #viewModeCalendar, #viewModeGantt { flex: 1; justify-content: center; padding: 9px 8px !important; }
+            #mainToolbar .action-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+            #mainToolbar .action-buttons button { justify-content: center; padding: 9px 6px !important; font-size: 12px !important; }
+            #cloudSyncPanel { padding: 10px !important; }
+            #cloudSyncPanel .sync-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            #cloudSyncPanel button { min-height: 40px; justify-content: center; }
+            .print-container { padding: 12px !important; border-radius: 10px !important; }
+            #slideHeaderTop { display: block !important; }
+            #slideHeaderTop > div:first-child { display: block !important; }
+            #slideTitle { font-size: 20px !important; max-width: 100% !important; }
+            #slideHeaderTop > div:nth-child(2) { margin-top: 8px; display: flex; justify-content: space-between; gap: 8px; }
+            #slideSubtitle { width: 60% !important; font-size: 14px !important; }
+            #noteRow { align-items: flex-start !important; }
+            #calendarScroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            #calendarHeader, #calendarGrid { min-width: 590px; }
+            .calendar-day-cell { min-height: 88px !important; padding: 4px !important; }
+            .calendar-day-cell .custom-scroll { max-height: 62px !important; }
+            .calendar-day-cell button { opacity: 1 !important; }
+            .calendar-day-cell [title] { font-size: 10px !important; }
+            #ganttViewContainer .table-container { max-height: 65vh; }
+            #ganttViewContainer table { min-width: 760px; }
+            #summaryTaskTableContainer { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            #summaryTaskTableContainer table { min-width: 620px; }
+            #taskModal > div, #resetModal > div { width: calc(100vw - 24px) !important; max-width: 440px !important; margin: 12px; max-height: calc(100dvh - 24px); overflow-y: auto; }
+            #taskModal input, #taskModal select, #taskModal textarea { font-size: 16px !important; }
+        }
+        @media screen and (max-width: 380px) {
+            #mainToolbar .action-buttons { grid-template-columns: 1fr; }
+            #cloudSyncPanel .sync-actions { grid-template-columns: 1fr; }
+        }
+
+        /* Print formatting for A4 Landscape Slide */
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 5mm;
+            }
+            body {
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .print-container {
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+            .calendar-day-cell {
+                min-height: 90px !important;
+            }
+            input, textarea {
+                border: none !important;
+                background: transparent !important;
+                resize: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen p-3 md:p-6 text-slate-800">
+
+    <!-- Top Navigation Toolbar (No Print) -->
+    <div id="mainToolbar" class="no-print max-w-[1600px] mx-auto mb-3 bg-white p-4 rounded-xl shadow-md border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+        
+        <!-- Left: Year & Month Navigation -->
+        <div class="month-controls flex items-center gap-3 flex-wrap">
+            <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-lg border border-slate-300">
+                <button id="prevMonthBtn" class="p-1.5 rounded hover:bg-white text-slate-700 transition" title="이전 달">
+                    <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                </button>
+                <select id="yearSelect" class="bg-white font-bold text-slate-800 px-3 py-1 rounded border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    <!-- Dynamic Years -->
+                </select>
+                <span class="font-bold text-slate-700">년</span>
+                <select id="monthSelect" class="bg-white font-bold text-slate-800 px-3 py-1 rounded border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    <!-- Dynamic Months -->
+                </select>
+                <span class="font-bold text-slate-700">월</span>
+                <button id="nextMonthBtn" class="p-1.5 rounded hover:bg-white text-slate-700 transition" title="다음 달">
+                    <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Dynamic Quick Month Shortcuts (Today-based: Previous, Current, Next) -->
+            <div id="quickMonthContainer" class="flex items-center gap-1 bg-emerald-50 p-1.5 rounded-lg border border-emerald-200 text-xs font-semibold">
+                <!-- Injected by JS -->
+            </div>
+        </div>
+
+        <!-- Center: View Mode Switcher -->
+        <div class="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-300 text-xs font-bold">
+            <button id="viewModeCalendar" onclick="setViewMode('calendar')" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-white text-emerald-700 shadow-sm transition">
+                <i data-lucide="calendar" class="w-4 h-4"></i> 주차별 달력
+            </button>
+            <button id="viewModeGantt" onclick="setViewMode('gantt')" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-slate-600 hover:text-slate-900 transition">
+                <i data-lucide="table" class="w-4 h-4"></i> 타임라인 표
+            </button>
+        </div>
+
+        <!-- Right: Action Buttons -->
+        <div class="action-buttons flex items-center gap-2 flex-wrap">
+            <button onclick="openAddTaskModal()" class="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg font-medium text-sm transition shadow-sm">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i> 일정 등록
+            </button>
+
+            <button onclick="openResetModal()" class="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 px-3 py-2 rounded-lg font-medium text-sm transition" title="현재 달 일정 전체 지우기">
+                <i data-lucide="rotate-ccw" class="w-4 h-4"></i> 현재 달 리셋
+            </button>
+
+            <button onclick="window.print()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg font-medium text-sm transition shadow-sm">
+                <i data-lucide="printer" class="w-4 h-4"></i> 출력 / PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- Google Drive sync controls (excluded from print/PDF) -->
+    <section id="cloudSyncPanel" class="no-print max-w-[1600px] mx-auto mb-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 font-bold text-sm text-slate-800"><i data-lucide="cloud" class="w-4 h-4 text-emerald-600"></i> Google 계정 동기화</div>
+                <p id="syncStatus" class="text-xs text-slate-500 mt-1" role="status" aria-live="polite">미연결 · 먼저 Google OAuth 설정을 완료한 뒤 계정을 연결하세요.</p>
+            </div>
+            <div class="sync-actions flex flex-wrap items-center gap-2">
+                <button id="connectGoogleBtn" onclick="connectGoogleDrive()" class="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 px-3 py-2 rounded-lg text-sm font-semibold"><i data-lucide="user-round" class="w-4 h-4"></i> Google 연결</button>
+                <button id="syncNowBtn" onclick="syncNow()" disabled class="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-semibold"><i data-lucide="refresh-cw" class="w-4 h-4"></i> 지금 동기화</button>
+                <button id="downloadCloudBtn" onclick="downloadCloudData()" disabled class="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed text-slate-700 px-3 py-2 rounded-lg text-sm font-semibold"><i data-lucide="cloud-download" class="w-4 h-4"></i> 클라우드 불러오기</button>
+                <button id="uploadCloudBtn" onclick="uploadCloudData()" disabled class="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed text-slate-700 px-3 py-2 rounded-lg text-sm font-semibold"><i data-lucide="cloud-upload" class="w-4 h-4"></i> 클라우드에 저장</button>
+                <button onclick="exportLocalBackup()" class="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 px-3 py-2 rounded-lg text-sm font-semibold"><i data-lucide="download" class="w-4 h-4"></i> 백업 내보내기</button>
+                <button onclick="document.getElementById('backupImportInput').click()" class="flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 px-3 py-2 rounded-lg text-sm font-semibold"><i data-lucide="upload" class="w-4 h-4"></i> 백업 가져오기</button>
+                <input id="backupImportInput" type="file" accept="application/json,.json" class="hidden" onchange="importLocalBackup(event)">
+            </div>
+        </div>
+        <p class="text-[11px] text-slate-400 mt-2">일정 데이터는 내 Google 계정의 앱 전용 저장 공간에 저장됩니다. 인쇄/PDF에는 이 동기화 영역이 포함되지 않습니다.</p>
+    </section>
+
+    <!-- Main Slide Printable Container -->
+    <div class="print-container max-w-[1600px] mx-auto bg-white rounded-xl shadow-xl border border-slate-300 p-5 md:p-7 transition-all">
+        
+        <!-- PPT Header Slide Top Bar -->
+        <div class="border-b-2 border-slate-800 pb-3 mb-4">
+            <div id="slideHeaderTop" class="flex justify-between items-end mb-1">
+                <div class="flex items-baseline gap-3 flex-1">
+                    <!-- Title Input -->
+                    <input type="text" id="slideTitle" class="text-2xl md:text-3xl font-black text-slate-900 border-b border-transparent hover:border-slate-300 focus:border-emerald-500 focus:outline-none w-full max-w-xl transition py-0.5" value="10월 팀 업무 일정표" placeholder="일정표 제목 입력...">
+                </div>
+                
+                <div class="flex items-center gap-3 text-right">
+                    <input type="text" id="slideSubtitle" class="text-lg font-bold italic text-slate-600 text-right border-b border-transparent hover:border-slate-300 focus:border-emerald-500 focus:outline-none w-48 md:w-64" value="주간 전략 회의 안건">
+                    <span id="slideTag" class="bg-amber-400 text-slate-900 font-extrabold text-xs px-2.5 py-1 rounded shadow-sm no-print">주요 추진 목표</span>
+                </div>
+            </div>
+
+            <!-- Key Strategy / Note Row -->
+            <div id="noteRow" class="flex items-center gap-2 mt-2 bg-slate-50 px-3 py-1.5 rounded border border-slate-200">
+                <span id="noteTag" class="text-xs font-bold text-blue-600 whitespace-nowrap">★ 안내/메모:</span>
+                <input type="text" id="slideNote" class="text-xs font-semibold text-blue-700 w-full bg-transparent focus:outline-none" value="금주 추진 업무 중 중요한 내용이나 이슈, 특이사항이 있을 경우 입력하세요.">
+            </div>
+        </div>
+
+        <!-- VIEW 1: Traditional Monthly Calendar Grid (주차별 달력) -->
+        <div id="calendarViewContainer" class="block">
+            <!-- Calendar Grid Table -->
+            <div id="calendarScroll" class="border border-slate-400 rounded-lg overflow-hidden shadow-sm">
+                <!-- Days of Week Header -->
+                <div id="calendarHeader" class="grid grid-cols-7 bg-emerald-100 border-b border-slate-400 text-center font-bold text-slate-800 text-sm py-2">
+                    <div class="text-rose-600">일 (SUN)</div>
+                    <div>월 (MON)</div>
+                    <div>화 (TUE)</div>
+                    <div>수 (WED)</div>
+                    <div>목 (THU)</div>
+                    <div>금 (FRI)</div>
+                    <div class="text-blue-600">토 (SAT)</div>
+                </div>
+
+                <!-- Dynamic Calendar Days Grid (Injected by JS) -->
+                <div id="calendarGrid" class="grid grid-cols-7 divide-x divide-y divide-slate-300 bg-slate-100">
+                    <!-- Week Rows Injected Here -->
+                </div>
+            </div>
+
+            <!-- Monthly Task Summary Panel below Calendar -->
+            <div class="mt-5 border border-slate-300 rounded-lg p-4 bg-slate-50/70">
+                <div class="flex items-center justify-between mb-3 border-b border-slate-200 pb-2">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="check-square" class="w-4 h-4 text-emerald-600"></i>
+                        <h3 class="font-bold text-sm text-slate-800" id="monthSummaryTitle">주요 구분별 업무 목록</h3>
+                    </div>
+                    <button onclick="addNewTaskRow()" class="no-print text-xs text-emerald-700 font-bold hover:underline flex items-center gap-1">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> 구분 항목 추가
+                    </button>
+                </div>
+
+                <!-- Task List Table -->
+                <div id="summaryTaskTableContainer" class="overflow-x-auto">
+                    <table class="w-full text-xs text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-200/80 text-slate-700 font-bold border-b border-slate-300">
+                                <th class="p-2 w-10 text-center no-print">삭제</th>
+                                <th class="p-2 w-12 text-center no-print">중요</th>
+                                <th class="p-2 w-36">구분</th>
+                                <th class="p-2">세부 내용 및 추진 계획</th>
+                                <th class="p-2 w-32">예상목표/기한</th>
+                                <th class="p-2 w-28 text-center">진행 상태</th>
+                            </tr>
+                        </thead>
+                        <tbody id="summaryTaskTbody" class="divide-y divide-slate-200 bg-white">
+                            <!-- Injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 2: Gantt Timeline Table Matrix -->
+        <div id="ganttViewContainer" class="hidden">
+            <div class="table-container overflow-x-auto rounded-lg border border-slate-400 shadow-sm custom-scroll">
+                <table class="w-full border-collapse text-xs text-center" id="scheduleTable">
+                    <thead>
+                        <tr id="headerRow1" class="bg-emerald-100 text-slate-800 font-bold border-b border-slate-400">
+                            <th class="border-r border-slate-400 p-2 w-10 no-print">삭제</th>
+                            <th class="border-r border-slate-400 p-2 w-28">구분</th>
+                            <th class="border-r border-slate-400 p-2 min-w-[200px] w-64">세부 내용</th>
+                            <th class="border-r border-slate-400 p-2 w-28">예상목표</th>
+                            <th class="border-r border-slate-400 p-2 w-12">일정</th>
+                            <th id="monthHeaderTh" class="bg-emerald-200 border-slate-400 p-1.5 font-extrabold text-sm text-slate-900" colspan="31">
+                                월별 타임라인
+                            </th>
+                        </tr>
+                        <tr id="headerRow2" class="bg-emerald-50 text-slate-700 font-bold border-b-2 border-slate-400">
+                            <!-- Dynamic Day Headers injected by JS -->
+                        </tr>
+                    </thead>
+                    <tbody id="taskTbody" class="divide-y divide-slate-300 bg-white">
+                        <!-- Dynamic Rows populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Footer Legend -->
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-600 pt-2 border-t border-slate-200">
+            <div class="flex items-center gap-4 flex-wrap">
+                <span class="font-bold text-slate-800">■ 범례 안내:</span>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-4 h-4 inline-block bg-emerald-100/90 border-l-[8px] border-l-emerald-600 border-2 border-emerald-400 rounded-sm"></span>
+                    <span>'종자' 관련 업무 (녹색 바탕)</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-4 h-4 inline-block bg-blue-100/90 border-l-[8px] border-l-blue-600 border-2 border-blue-400 rounded-sm"></span>
+                    <span>일반 업무 (파란색 바탕)</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="text-rose-600 font-extrabold">★ 중요 업무 (빨간색 글씨+굵게)</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="line-through text-slate-400"><s>완료 업무 (가운데 줄)</s></span>
+                </div>
+            </div>
+
+            <div class="text-right text-slate-500 text-[11px] font-medium">
+                * 진행 상태: [진행중 / 완료 / 보류] 선택 | 중요 체크시 빨간색 굵은글씨 적용
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Task Add / Edit Modal (No Print) -->
+    <div id="taskModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden no-print">
+        <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md p-6 m-4 transition-all">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
+                <h3 class="font-bold text-lg text-slate-800 flex items-center gap-2" id="modalTitle">
+                    <i data-lucide="calendar-plus" class="w-5 h-5 text-emerald-600"></i> 일정 상세 등록
+                </h3>
+                <button onclick="closeTaskModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form id="taskForm" onsubmit="handleModalSubmit(event)" class="space-y-4 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">날짜 선택</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <span class="text-[11px] text-slate-500">시작일</span>
+                            <input type="number" id="modalStartDay" min="1" max="31" class="w-full border border-slate-300 rounded px-2.5 py-1.5 font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none" required>
+                        </div>
+                        <div>
+                            <span class="text-[11px] text-slate-500">종료일 (선택)</span>
+                            <input type="number" id="modalEndDay" min="1" max="31" class="w-full border border-slate-300 rounded px-2.5 py-1.5 font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">구분</label>
+                    <input type="text" id="modalCategory" placeholder="예: 종자미팅, 종자출고, 사업기획" class="w-full border border-slate-300 rounded px-3 py-2 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    <p class="text-[11px] text-emerald-600 mt-1">* '종자'가 포함되면 녹색, 그 외는 파란색으로 자동 지정됩니다.</p>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">세부 내용 및 추진 계획</label>
+                    <textarea id="modalDetail" rows="2" placeholder="달력 및 타임라인에 표시할 세부 내용을 입력하세요" class="w-full border border-slate-300 rounded px-3 py-2 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none" required></textarea>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">예상 목표 / 기한</label>
+                    <input type="text" id="modalTarget" placeholder="예: 10/20 까지, 완료시까지" class="w-full border border-slate-300 rounded px-3 py-2 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">진행 상태</label>
+                        <select id="modalStatus" class="w-full border border-slate-300 rounded px-3 py-2 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white">
+                            <option value="진행중">진행중</option>
+                            <option value="완료">완료</option>
+                            <option value="보류">보류</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">중요 업무 여부</label>
+                        <label class="flex items-center gap-2 mt-2 cursor-pointer font-bold text-slate-800">
+                            <input type="checkbox" id="modalIsImportant" class="w-4 h-4 text-rose-600 rounded focus:ring-rose-500">
+                            <span class="text-rose-600 font-bold">★ 중요 업무 지정</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+                    <button type="button" onclick="closeTaskModal()" class="px-4 py-2 rounded-lg border border-slate-300 text-slate-600 font-medium hover:bg-slate-100 transition">취소</button>
+                    <button type="submit" class="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-sm">저장하기</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Reset Confirm Modal (No Print) -->
+    <div id="resetModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden no-print">
+        <div class="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-sm p-6 m-4 transition-all text-center">
+            <div class="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-3">
+                <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+            </div>
+            <h3 class="font-bold text-base text-slate-800 mb-2" id="resetModalText">현재 달의 모든 일정을 초기화하시겠습니까?</h3>
+            <p class="text-xs text-slate-500 mb-5">삭제된 데이터는 복구할 수 없습니다.</p>
+            <div class="flex items-center justify-center gap-3">
+                <button onclick="closeResetModal()" class="px-4 py-2 rounded-lg border border-slate-300 text-slate-600 font-medium hover:bg-slate-100 text-xs transition">취소</button>
+                <button onclick="confirmResetCurrentMonth()" class="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition shadow-sm">네, 삭제합니다</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // South Korean Public Holidays Map (2024 ~ 2030)
+        const HOLIDAY_DATABASE = {
+            fixed: {
+                "01-01": "신정",
+                "03-01": "삼일절",
+                "05-05": "어린이날",
+                "06-06": "현충일",
+                "08-15": "광복절",
+                "10-03": "개천절",
+                "10-09": "한글날",
+                "12-25": "성탄절"
+            },
+            yearly: {
+                2024: { "02-09":"설날연휴", "02-10":"설날", "02-11":"설날연휴", "02-12":"대체공휴일", "04-10":"국회의원선거", "05-06":"대체공휴일", "05-15":"부처님오신날", "09-16":"추석연휴", "09-17":"추석", "09-18":"추석연휴" },
+                2025: { "01-28":"설날연휴", "01-29":"설날", "01-30":"설날연휴", "03-03":"대체공휴일", "05-05":"부처님오신날/어린이날", "05-06":"대체공휴일", "10-05":"추석연휴", "10-06":"추석", "10-07":"추석연휴", "10-08":"대체공휴일" },
+                2026: { "02-16":"설날연휴", "02-17":"설날", "02-18":"설날연휴", "03-02":"대체공휴일", "05-24":"부처님오신날", "05-25":"대체공휴일", "08-17":"대체공휴일", "09-24":"추석연휴", "09-25":"추석", "09-26":"추석연휴", "10-05":"대체공휴일" },
+                2027: { "02-06":"설날연휴", "02-07":"설날", "02-08":"설날연휴", "02-09":"대체공휴일", "03-03":"대체공휴일", "05-13":"부처님오신날", "09-14":"추석연휴", "09-15":"추석", "09-16":"추석연휴", "10-04":"대체공휴일" },
+                2028: { "01-26":"설날연휴", "01-27":"설날", "01-28":"설날연휴", "05-02":"부처님오신날", "10-02":"추석", "10-03":"추석연휴/개천절", "10-04":"추석연휴", "10-05":"대체공휴일" },
+                2029: { "02-12":"설날연휴", "02-13":"설날", "02-14":"설날연휴", "05-07":"대체공휴일", "05-20":"부처님오신날", "09-21":"추석연휴", "09-22":"추석", "09-23":"추석연휴", "10-08":"대체공휴일" },
+                2030: { "02-02":"설날연휴", "02-03":"설날", "02-04":"설날연휴", "02-05":"대체공휴일", "05-09":"부처님오신날", "09-11":"추석연휴", "09-12":"추석", "09-13":"추석연휴" }
+            }
+        };
+
+        // Application State
+        const todayObj = new Date();
+        let currentYear = todayObj.getFullYear();
+        let currentMonth = todayObj.getMonth() + 1;
+        let currentViewMode = 'calendar'; // 'calendar' or 'gantt'
+        let tasksData = {};
+        let editingTaskId = null;
+        let isMouseDown = false;
+        let toggleStateTo = true;
+
+        // Google Drive appDataFolder sync configuration.
+        // Replace this placeholder with the OAuth 2.0 Web application client ID from Google Cloud Console.
+        const GOOGLE_CLIENT_ID = 'PASTE_YOUR_GOOGLE_OAUTH_WEB_CLIENT_ID_HERE';
+        const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+        const CLOUD_FILE_NAME = 'work_schedule_planner_sync.json';
+        const SETTINGS_STORAGE_KEY = 'monthly_schedule_planner_v3_settings';
+        let googleTokenClient = null;
+        let googleAccessToken = null;
+        let cloudFileId = null;
+        let lastSyncedAt = 0;
+        let cloudSyncActive = false;
+        let isApplyingCloudData = false;
+        let cloudPollHandle = null;
+        let cloudPushTimer = null;
+
+        // Check if day is South Korea public holiday
+        function getHolidayName(year, month, day) {
+            const mm = String(month).padStart(2, '0');
+            const dd = String(day).padStart(2, '0');
+            const key = `${mm}-${dd}`;
+
+            if (HOLIDAY_DATABASE.yearly[year] && HOLIDAY_DATABASE.yearly[year][key]) {
+                return HOLIDAY_DATABASE.yearly[year][key];
+            }
+            if (HOLIDAY_DATABASE.fixed[key]) {
+                return HOLIDAY_DATABASE.fixed[key];
+            }
+            return null;
+        }
+
+        // Color & Badge Style Calculator
+        function getTaskColorClass(task) {
+            const cat = task.category || '';
+            const det = task.detail || '';
+            const isSeed = cat.includes('종자') || det.includes('종자');
+
+            if (isSeed) {
+                return { 
+                    bg: 'bg-emerald-600', 
+                    lightBg: 'bg-emerald-100/90',
+                    lightText: 'text-emerald-950',
+                    accentBorder: 'border-l-[8px] border-l-emerald-600 border-2 border-emerald-400'
+                };
+            }
+            return { 
+                bg: 'bg-blue-600', 
+                lightBg: 'bg-blue-100/90',
+                lightText: 'text-blue-950',
+                accentBorder: 'border-l-[8px] border-l-blue-600 border-2 border-blue-400'
+            };
+        }
+
+        // Helper string key
+        function getYearMonthKey() {
+            return `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadLocalStorageData();
+            loadHeaderSettings();
+            initYearMonthDropdowns();
+            renderQuickMonthShortcuts();
+            renderView();
+            setupEventListeners();
+            setupHeaderSettingsListeners();
+            updateSyncControls();
+            if (window.lucide) lucide.createIcons();
+        });
+
+        function loadLocalStorageData() {
+            const savedData = localStorage.getItem('monthly_schedule_planner_v3_data');
+            if (savedData) {
+                try { tasksData = JSON.parse(savedData) || {}; }
+                catch (e) { tasksData = {}; }
+            } else {
+                tasksData = {};
+            }
+        }
+
+        function getHeaderSettings() {
+            return {
+                slideTitle: document.getElementById('slideTitle')?.value ?? '',
+                slideSubtitle: document.getElementById('slideSubtitle')?.value ?? '',
+                slideNote: document.getElementById('slideNote')?.value ?? ''
+            };
+        }
+
+        function applyHeaderSettings(settings) {
+            if (!settings) return;
+            ['slideTitle', 'slideSubtitle', 'slideNote'].forEach(id => {
+                if (typeof settings[id] === 'string' && document.getElementById(id)) {
+                    document.getElementById(id).value = settings[id];
+                }
+            });
+        }
+
+        function loadHeaderSettings() {
+            try {
+                const settings = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || 'null');
+                if (settings) applyHeaderSettings(settings);
+            } catch (e) { console.warn('Header settings could not be loaded:', e); }
+        }
+
+        function setupHeaderSettingsListeners() {
+            ['slideTitle', 'slideSubtitle', 'slideNote'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('change', () => {
+                    try { localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(getHeaderSettings())); } catch (e) {}
+                    queueCloudPush();
+                });
+            });
+        }
+
+        function makeCloudBundle() {
+            return {
+                schemaVersion: 1,
+                updatedAt: Date.now(),
+                tasksData: tasksData,
+                settings: getHeaderSettings()
+            };
+        }
+
+        function saveData() {
+            try {
+                localStorage.setItem('monthly_schedule_planner_v3_data', JSON.stringify(tasksData));
+                localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(getHeaderSettings()));
+            } catch (e) { console.error('Local save failed:', e); }
+            if (!isApplyingCloudData) queueCloudPush();
+        }
+
+        function setSyncStatus(message, kind = 'normal') {
+            const el = document.getElementById('syncStatus');
+            if (!el) return;
+            el.textContent = message;
+            el.className = 'text-xs mt-1 ' + (kind === 'error' ? 'text-rose-600' : kind === 'success' ? 'text-emerald-700' : 'text-slate-500');
+        }
+
+        function updateSyncControls() {
+            const connected = !!googleAccessToken;
+            ['syncNowBtn', 'downloadCloudBtn', 'uploadCloudBtn'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = !connected;
+            });
+            const connectBtn = document.getElementById('connectGoogleBtn');
+            if (connectBtn) connectBtn.innerHTML = connected
+                ? '<i data-lucide="check-circle-2" class="w-4 h-4"></i> Google 연결됨'
+                : '<i data-lucide="user-round" class="w-4 h-4"></i> Google 연결';
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function connectGoogleDrive() {
+            if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.includes('PASTE_YOUR_')) {
+                alert('먼저 HTML의 GOOGLE_CLIENT_ID에 Google Cloud Console에서 발급한 OAuth 2.0 웹 클라이언트 ID를 입력하세요. 자세한 절차는 안내 문서를 확인하세요.');
+                return;
+            }
+            if (!window.google?.accounts?.oauth2) {
+                setSyncStatus('Google 인증 모듈을 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도하세요.', 'error');
+                return;
+            }
+            googleTokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: GOOGLE_CLIENT_ID,
+                scope: GOOGLE_DRIVE_SCOPE,
+                callback: async (response) => {
+                    if (response.error || !response.access_token) {
+                        setSyncStatus('Google 연결 실패: ' + (response.error || '인증 토큰을 받지 못했습니다.'), 'error');
+                        return;
+                    }
+                    googleAccessToken = response.access_token;
+                    updateSyncControls();
+                    try {
+                        await initializeCloudConnection();
+                    } catch (e) {
+                        setSyncStatus('Google Drive 연결 오류: ' + (e.message || e), 'error');
+                    }
+                },
+                error_callback: (error) => setSyncStatus('Google 인증 창을 열지 못했습니다: ' + (error.message || error.type || '오류'), 'error')
+            });
+            googleTokenClient.requestAccessToken({ prompt: 'consent' });
+        }
+
+        async function driveRequest(url, options = {}) {
+            if (!googleAccessToken) throw new Error('Google 계정을 먼저 연결하세요.');
+            const headers = new Headers(options.headers || {});
+            headers.set('Authorization', 'Bearer ' + googleAccessToken);
+            const response = await fetch(url, { ...options, headers });
+            if (response.status === 401) {
+                googleAccessToken = null;
+                cloudSyncActive = false;
+                updateSyncControls();
+                throw new Error('Google 인증이 만료되었습니다. Google 연결을 다시 눌러 주세요.');
+            }
+            if (!response.ok) {
+                let detail = '';
+                try { detail = (await response.json()).error?.message || ''; } catch (e) {}
+                throw new Error(detail || `Google Drive 요청 실패 (${response.status})`);
+            }
+            if (response.status === 204) return null;
+            return response.json();
+        }
+
+        async function findCloudFile() {
+            const query = encodeURIComponent(`name='${CLOUD_FILE_NAME}' and trashed=false`);
+            const result = await driveRequest(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${query}&pageSize=10&fields=files(id,name,modifiedTime)`);
+            const files = result.files || [];
+            return files.length ? files[0] : null;
+        }
+
+        async function readCloudBundle() {
+            const file = await findCloudFile();
+            cloudFileId = file?.id || null;
+            if (!cloudFileId) return null;
+            return await driveRequest(`https://www.googleapis.com/drive/v3/files/${cloudFileId}?alt=media`);
+        }
+
+        async function writeCloudBundle(bundle) {
+            const boundary = 'planner_sync_boundary_' + Math.random().toString(16).slice(2);
+            const metadata = cloudFileId
+                ? { name: CLOUD_FILE_NAME }
+                : { name: CLOUD_FILE_NAME, parents: ['appDataFolder'] };
+            const body = JSON.stringify(bundle);
+            const multipart = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${body}\r\n--${boundary}--`;
+            const url = cloudFileId
+                ? `https://www.googleapis.com/upload/drive/v3/files/${cloudFileId}?uploadType=multipart`
+                : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+            const result = await driveRequest(url, {
+                method: cloudFileId ? 'PATCH' : 'POST',
+                headers: { 'Content-Type': 'multipart/related; boundary=' + boundary },
+                body: multipart
+            });
+            if (result?.id) cloudFileId = result.id;
+            lastSyncedAt = Number(bundle.updatedAt) || Date.now();
+            return result;
+        }
+
+        function hasLocalScheduleData() {
+            return Object.values(tasksData || {}).some(list => Array.isArray(list) && list.length > 0);
+        }
+
+        function mergeTaskData(localData, cloudData) {
+            const merged = JSON.parse(JSON.stringify(cloudData || {}));
+            Object.entries(localData || {}).forEach(([month, localTasks]) => {
+                if (!Array.isArray(localTasks)) return;
+                if (!Array.isArray(merged[month])) merged[month] = [];
+                const byId = new Map(merged[month].map(task => [String(task.id), task]));
+                localTasks.forEach(task => byId.set(String(task.id), task)); // same ID: prefer current device version
+                merged[month] = Array.from(byId.values());
+            });
+            return merged;
+        }
+
+        async function initializeCloudConnection() {
+            setSyncStatus('Google Drive 저장 공간을 확인하는 중…');
+            const cloud = await readCloudBundle();
+            if (!cloud) {
+                await writeCloudBundle(makeCloudBundle());
+                startCloudPolling();
+                setSyncStatus('연결 완료 · 현재 기기 데이터를 클라우드에 처음 저장했습니다.', 'success');
+                return;
+            }
+            const localHasData = hasLocalScheduleData();
+            const cloudHasData = cloud.tasksData && Object.values(cloud.tasksData).some(list => Array.isArray(list) && list.length);
+            if (localHasData && cloudHasData) {
+                const useMerge = confirm('이 기기와 Google Drive에 모두 일정이 있습니다.\n[확인] 두 데이터를 병합(같은 일정 ID는 현재 기기 우선)\n[취소] Google Drive 데이터를 그대로 불러오기');
+                if (useMerge) {
+                    tasksData = mergeTaskData(tasksData, cloud.tasksData);
+                    if (!localStorage.getItem(SETTINGS_STORAGE_KEY) && cloud.settings) { applyHeaderSettings(cloud.settings); localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(cloud.settings)); }
+                    isApplyingCloudData = true;
+                    try { localStorage.setItem('monthly_schedule_planner_v3_data', JSON.stringify(tasksData)); } finally { isApplyingCloudData = false; }
+                    await writeCloudBundle(makeCloudBundle());
+                    renderView();
+                    setSyncStatus('연결 완료 · 기존 데이터 병합 후 클라우드에 저장했습니다.', 'success');
+                } else {
+                    applyCloudBundle(cloud);
+                    setSyncStatus('연결 완료 · Google Drive 데이터를 불러왔습니다.', 'success');
+                }
+            } else {
+                applyCloudBundle(cloud);
+                setSyncStatus('연결 완료 · Google Drive 데이터를 불러왔습니다.', 'success');
+            }
+            startCloudPolling();
+        }
+
+        function applyCloudBundle(bundle) {
+            if (!bundle || typeof bundle !== 'object') throw new Error('클라우드 데이터 형식이 올바르지 않습니다.');
+            isApplyingCloudData = true;
+            try {
+                tasksData = bundle.tasksData && typeof bundle.tasksData === 'object' ? bundle.tasksData : {};
+                localStorage.setItem('monthly_schedule_planner_v3_data', JSON.stringify(tasksData));
+                if (bundle.settings) {
+                    applyHeaderSettings(bundle.settings);
+                    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(bundle.settings));
+                }
+            } finally { isApplyingCloudData = false; }
+            lastSyncedAt = Number(bundle.updatedAt) || Date.now();
+            renderView();
+        }
+
+        async function downloadCloudData() {
+            try {
+                const cloud = await readCloudBundle();
+                if (!cloud) { setSyncStatus('클라우드에 저장된 데이터가 없습니다.', 'error'); return; }
+                if (hasLocalScheduleData() && !confirm('현재 기기의 일정 데이터가 Google Drive 데이터로 교체됩니다. 계속할까요?')) return;
+                applyCloudBundle(cloud);
+                cloudSyncActive = true;
+                startCloudPolling();
+                setSyncStatus('Google Drive 데이터를 불러왔습니다.', 'success');
+            } catch (e) { setSyncStatus('불러오기 실패: ' + e.message, 'error'); }
+        }
+
+        async function uploadCloudData() {
+            try {
+                const cloud = await readCloudBundle();
+                if (cloud && (cloud.tasksData && Object.values(cloud.tasksData).some(list => Array.isArray(list) && list.length))) {
+                    if (!confirm('현재 기기의 데이터를 Google Drive에 저장합니다. 같은 ID의 일정은 현재 기기 데이터로 덮어씁니다. 계속할까요?')) return;
+                }
+                await writeCloudBundle(makeCloudBundle());
+                cloudSyncActive = true;
+                startCloudPolling();
+                setSyncStatus('현재 기기의 데이터를 Google Drive에 저장했습니다. 이후 변경사항은 자동 동기화됩니다.', 'success');
+            } catch (e) { setSyncStatus('저장 실패: ' + e.message, 'error'); }
+        }
+
+        async function syncNow() {
+            try {
+                const cloud = await readCloudBundle();
+                if (!cloud) {
+                    await writeCloudBundle(makeCloudBundle());
+                } else if (Number(cloud.updatedAt || 0) > lastSyncedAt && cloudSyncActive) {
+                    // Cloud changed after the last sync: merge by task ID to avoid dropping additions.
+                    tasksData = mergeTaskData(tasksData, cloud.tasksData || {});
+                    if (cloud.settings) applyHeaderSettings(cloud.settings);
+                    await writeCloudBundle(makeCloudBundle());
+                    renderView();
+                } else {
+                    await writeCloudBundle(makeCloudBundle());
+                }
+                cloudSyncActive = true;
+                startCloudPolling();
+                setSyncStatus('동기화 완료 · ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }), 'success');
+            } catch (e) { setSyncStatus('동기화 실패: ' + e.message, 'error'); }
+        }
+
+        function exportLocalBackup() {
+            const backup = {
+                app: '업무일정표 V2',
+                exportedAt: new Date().toISOString(),
+                schemaVersion: 1,
+                tasksData: tasksData,
+                settings: getHeaderSettings()
+            };
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `업무일정표_백업_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            setSyncStatus('현재 기기의 백업 JSON 파일을 내보냈습니다.', 'success');
+        }
+
+        async function importLocalBackup(event) {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            try {
+                const parsed = JSON.parse(await file.text());
+                const incomingTasks = parsed.tasksData || parsed;
+                if (!incomingTasks || typeof incomingTasks !== 'object' || Array.isArray(incomingTasks)) {
+                    throw new Error('백업 파일에 일정 데이터가 없습니다.');
+                }
+                const merge = hasLocalScheduleData() && confirm('현재 일정과 백업 파일의 일정을 병합할까요?\n[확인] 병합(같은 ID는 백업 파일 우선)\n[취소] 백업 파일 데이터로 교체');
+                tasksData = merge ? mergeTaskData(incomingTasks, tasksData) : incomingTasks;
+                if (parsed.settings) applyHeaderSettings(parsed.settings);
+                isApplyingCloudData = true;
+                try {
+                    localStorage.setItem('monthly_schedule_planner_v3_data', JSON.stringify(tasksData));
+                    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(getHeaderSettings()));
+                } finally { isApplyingCloudData = false; }
+                renderView();
+                if (googleAccessToken && cloudSyncActive) queueCloudPush();
+                setSyncStatus('백업 파일을 가져왔습니다. 기존 데이터와 비교한 뒤 클라우드 동기화를 진행하세요.', 'success');
+            } catch (e) {
+                alert('백업 파일을 읽지 못했습니다: ' + e.message);
+                setSyncStatus('백업 가져오기 실패: ' + e.message, 'error');
+            } finally { event.target.value = ''; }
+        }
+
+        function queueCloudPush() {
+            if (!googleAccessToken || !cloudSyncActive || isApplyingCloudData) return;
+            clearTimeout(cloudPushTimer);
+            cloudPushTimer = setTimeout(async () => {
+                try {
+                    await writeCloudBundle(makeCloudBundle());
+                    setSyncStatus('자동 저장 완료 · ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }), 'success');
+                } catch (e) { setSyncStatus('자동 저장 실패: ' + e.message, 'error'); }
+            }, 900);
+        }
+
+        function startCloudPolling() {
+            cloudSyncActive = true;
+            if (cloudPollHandle) clearInterval(cloudPollHandle);
+            cloudPollHandle = setInterval(async () => {
+                if (!googleAccessToken || document.hidden) return;
+                try {
+                    const cloud = await readCloudBundle();
+                    if (cloud && Number(cloud.updatedAt || 0) > lastSyncedAt) {
+                        applyCloudBundle(cloud);
+                        setSyncStatus('다른 기기의 최신 변경사항을 반영했습니다.', 'success');
+                    }
+                } catch (e) { setSyncStatus('자동 확인 오류: ' + e.message, 'error'); }
+            }, 25000);
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && googleAccessToken && cloudSyncActive) syncNow();
+        });
+
+        // Initialize Year & Month Dropdowns
+        function initYearMonthDropdowns() {
+            const yearSelect = document.getElementById('yearSelect');
+            const monthSelect = document.getElementById('monthSelect');
+            
+            if (!yearSelect || !monthSelect) return;
+
+            yearSelect.innerHTML = '';
+            for (let y = 2020; y <= 2035; y++) {
+                const opt = document.createElement('option');
+                opt.value = y;
+                opt.textContent = y;
+                if (y === currentYear) opt.selected = true;
+                yearSelect.appendChild(opt);
+            }
+
+            monthSelect.innerHTML = '';
+            for (let m = 1; m <= 12; m++) {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = m;
+                if (m === currentMonth) opt.selected = true;
+                monthSelect.appendChild(opt);
+            }
+        }
+
+        // Dynamic Today-based Quick Month Shortcuts (e.g., 8월, 9월, 10월 based on today)
+        function renderQuickMonthShortcuts() {
+            const container = document.getElementById('quickMonthContainer');
+            if (!container) return;
+
+            const now = new Date();
+            const todayYear = now.getFullYear();
+            const todayMonth = now.getMonth() + 1;
+
+            const prev = new Date(todayYear, todayMonth - 2, 1);
+            const next = new Date(todayYear, todayMonth, 1);
+
+            const prevY = prev.getFullYear(), prevM = prev.getMonth() + 1;
+            const nowY = todayYear, nowM = todayMonth;
+            const nextY = next.getFullYear(), nextM = next.getMonth() + 1;
+
+            container.innerHTML = `
+                <span class="text-emerald-800 px-1 font-bold">바로가기:</span>
+                <button onclick="navigateToYearMonth(${prevY}, ${prevM})" class="px-2.5 py-1 rounded bg-white hover:bg-emerald-600 hover:text-white border border-emerald-300 text-emerald-900 font-semibold transition shadow-sm" title="${prevY}년 ${prevM}월">
+                    ${prevM}월
+                </button>
+                <button onclick="navigateToYearMonth(${nowY}, ${nowM})" class="px-2.5 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 border border-emerald-600 font-extrabold transition shadow-sm" title="${nowY}년 ${nowM}월">
+                    ${nowM}월
+                </button>
+                <button onclick="navigateToYearMonth(${nextY}, ${nextM})" class="px-2.5 py-1 rounded bg-white hover:bg-emerald-600 hover:text-white border border-emerald-300 text-emerald-900 font-semibold transition shadow-sm" title="${nextY}년 ${nextM}월">
+                    ${nextM}월
+                </button>
+            `;
+        }
+
+        function navigateToYearMonth(y, m) {
+            currentYear = y;
+            currentMonth = m;
+            document.getElementById('yearSelect').value = currentYear;
+            document.getElementById('monthSelect').value = currentMonth;
+            renderView();
+        }
+
+        function setViewMode(mode) {
+            currentViewMode = mode;
+            renderView();
+        }
+
+        function renderView() {
+            const monthSummaryTitle = document.getElementById('monthSummaryTitle');
+            if (monthSummaryTitle) {
+                monthSummaryTitle.textContent = `${currentMonth}월 주요 구분별 업무 목록`;
+            }
+
+            const slideTitle = document.getElementById('slideTitle');
+            if (slideTitle && slideTitle.value.includes('월')) {
+                slideTitle.value = `${currentMonth}월 팀 업무 일정표`;
+            }
+
+            if (currentViewMode === 'calendar') {
+                document.getElementById('calendarViewContainer').classList.remove('hidden');
+                document.getElementById('ganttViewContainer').classList.add('hidden');
+                document.getElementById('viewModeCalendar').className = 'flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-white text-emerald-700 shadow-sm transition font-bold';
+                document.getElementById('viewModeGantt').className = 'flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-slate-600 hover:text-slate-900 transition font-bold';
+                renderMonthlyCalendarGrid();
+            } else {
+                document.getElementById('calendarViewContainer').classList.add('hidden');
+                document.getElementById('ganttViewContainer').classList.remove('hidden');
+                document.getElementById('viewModeCalendar').className = 'flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-slate-600 hover:text-slate-900 transition font-bold';
+                document.getElementById('viewModeGantt').className = 'flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-white text-emerald-700 shadow-sm transition font-bold';
+                renderGanttMatrixTable();
+            }
+
+            renderSummaryTaskList();
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function renderMonthlyCalendarGrid() {
+            const calendarGrid = document.getElementById('calendarGrid');
+            if (!calendarGrid) return;
+            calendarGrid.innerHTML = '';
+
+            const key = getYearMonthKey();
+            const monthTasks = tasksData[key] || [];
+
+            const firstDayIndex = new Date(currentYear, currentMonth - 1, 1).getDay(); // 0: Sun
+            const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+            const prevMonthDays = new Date(currentYear, currentMonth - 1, 0).getDate();
+
+            let dayCounter = 1;
+            let nextMonthCounter = 1;
+            const totalCells = Math.ceil((firstDayIndex + daysInMonth) / 7) * 7;
+
+            for (let i = 0; i < totalCells; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'calendar-day-cell bg-white border-b border-r border-slate-200 p-1.5 flex flex-col justify-between transition relative group';
+
+                if (i < firstDayIndex) {
+                    const prevDay = prevMonthDays - firstDayIndex + i + 1;
+                    cell.classList.add('bg-slate-50/70', 'text-slate-300');
+                    cell.innerHTML = `<div class="text-xs font-semibold text-slate-300 p-0.5">${prevDay}</div>`;
+                } else if (dayCounter <= daysInMonth) {
+                    const thisDay = dayCounter;
+                    const dateObj = new Date(currentYear, currentMonth - 1, thisDay);
+                    const dayOfWeek = dateObj.getDay();
+                    const holidayName = getHolidayName(currentYear, currentMonth, thisDay);
+
+                    let dayColorClass = 'text-slate-700 font-semibold';
+                    if (dayOfWeek === 0 || holidayName) {
+                        dayColorClass = 'text-rose-600 font-extrabold';
+                    } else if (dayOfWeek === 6) {
+                        dayColorClass = 'text-blue-600 font-extrabold';
+                    }
+
+                    const activeTasks = monthTasks.filter(t => t.days && t.days.includes(thisDay));
+
+                    let tasksHtml = '';
+                    activeTasks.forEach(task => {
+                        const styleConfig = getTaskColorClass(task);
+                        const isCompleted = task.status === '완료';
+                        const isImportant = task.isImportant;
+
+                        const textDecoration = isCompleted ? 'line-through opacity-70' : '';
+                        
+                        // Important tasks get bright bold red text
+                        const textStyle = isImportant 
+                            ? 'text-rose-600 font-extrabold' 
+                            : (isCompleted ? 'text-slate-400 font-medium' : `${styleConfig.lightText} font-bold`);
+
+                        const badgeStyle = `${styleConfig.lightBg} ${styleConfig.accentBorder}`;
+
+                        // Display ONLY detail (세부 내용) on calendar badge
+                        tasksHtml += `
+                            <div onclick="event.stopPropagation(); editTaskModal(${task.id})" 
+                                 class="${badgeStyle} text-[11px] p-1 rounded mb-1 shadow-sm cursor-pointer truncate hover:opacity-90 flex items-center justify-between transition"
+                                 title="${escapeHtml(task.category ? '[' + task.category + '] ' : '')}${escapeHtml(task.detail)}">
+                                <span class="truncate ${textStyle} ${textDecoration}">
+                                    ${isImportant ? '★ ' : ''}${escapeHtml(task.detail || '세부내용')}
+                                </span>
+                            </div>
+                        `;
+                    });
+
+                    const holidayBadge = holidayName 
+                        ? `<span class="text-[10px] text-rose-600 font-extrabold truncate max-w-[75px]" title="${holidayName}">${holidayName}</span>` 
+                        : '';
+
+                    cell.innerHTML = `
+                        <div class="flex items-center justify-between mb-1">
+                            <div class="flex items-center gap-1">
+                                <span class="text-xs ${dayColorClass} px-0.5">${thisDay}</span>
+                                ${holidayBadge}
+                            </div>
+                            <button onclick="event.stopPropagation(); openAddTaskModal(${thisDay})" 
+                                    class="no-print opacity-0 group-hover:opacity-100 text-[10px] bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white px-1.5 py-0.5 rounded transition font-bold">
+                                + 추가
+                            </button>
+                        </div>
+                        <div class="flex-1 custom-scroll overflow-y-auto max-h-[90px] text-left">
+                            ${tasksHtml}
+                        </div>
+                    `;
+
+                    cell.addEventListener('click', () => {
+                        openAddTaskModal(thisDay);
+                    });
+
+                    dayCounter++;
+                } else {
+                    cell.classList.add('bg-slate-50/70', 'text-slate-300');
+                    cell.innerHTML = `<div class="text-xs font-semibold text-slate-300 p-0.5">${nextMonthCounter}</div>`;
+                    nextMonthCounter++;
+                }
+
+                calendarGrid.appendChild(cell);
+            }
+        }
+
+        function renderSummaryTaskList() {
+            const tbody = document.getElementById('summaryTaskTbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const key = getYearMonthKey();
+            const monthTasks = tasksData[key] || [];
+
+            if (monthTasks.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="p-6 text-center text-slate-400 font-medium">
+                            등록된 일정이 없습니다. [일정 등록] 버튼을 눌러 새 업무를 추가해보세요.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            monthTasks.forEach((task) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition border-b border-slate-200';
+
+                const isCompleted = task.status === '완료';
+                const isImportant = task.isImportant;
+                const customStyleClass = `${isCompleted ? 'line-through text-slate-400' : ''} ${isImportant ? 'text-rose-600 font-extrabold' : 'font-semibold text-slate-800'}`;
+
+                // Del Button
+                const tdDel = document.createElement('td');
+                tdDel.className = 'p-2 text-center no-print';
+                tdDel.innerHTML = `
+                    <button onclick="removeTaskById(${task.id})" class="text-slate-400 hover:text-rose-600 p-1 transition" title="삭제">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                `;
+                tr.appendChild(tdDel);
+
+                // Important Star Toggle
+                const tdImp = document.createElement('td');
+                tdImp.className = 'p-2 text-center no-print';
+                tdImp.innerHTML = `
+                    <button onclick="toggleImportantById(${task.id})" class="p-1 transition" title="중요 표시 전환">
+                        <i data-lucide="star" class="w-4 h-4 ${isImportant ? 'text-amber-500 fill-amber-400' : 'text-slate-300'}"></i>
+                    </button>
+                `;
+                tr.appendChild(tdImp);
+
+                // Category Input
+                tr.appendChild(createInputTd(task.category || '', (v) => updateTaskFieldById(task.id, 'category', v), '구분 입력...', customStyleClass));
+                
+                // Detail Input
+                tr.appendChild(createInputTd(task.detail || '', (v) => updateTaskFieldById(task.id, 'detail', v), '세부 내용 입력...', customStyleClass));
+                
+                // Target Input
+                tr.appendChild(createInputTd(task.target || '', (v) => updateTaskFieldById(task.id, 'target', v), '목표/기한...', 'text-slate-600'));
+
+                // Status Dropdown Select
+                const tdStatus = document.createElement('td');
+                tdStatus.className = 'p-2 text-center';
+                tdStatus.innerHTML = `
+                    <select onchange="updateTaskFieldById(${task.id}, 'status', this.value)" class="bg-white border border-slate-300 text-xs font-bold rounded px-2 py-1 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        <option value="진행중" ${task.status === '진행중' ? 'selected' : ''}>진행중</option>
+                        <option value="완료" ${task.status === '완료' ? 'selected' : ''}>완료</option>
+                        <option value="보류" ${task.status === '보류' ? 'selected' : ''}>보류</option>
+                    </select>
+                `;
+                tr.appendChild(tdStatus);
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        function createInputTd(value, onChangeCallback, placeholder, extraClass = '') {
+            const td = document.createElement('td');
+            td.className = 'p-2';
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = value;
+            input.placeholder = placeholder;
+            input.className = `w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:outline-none px-1 py-0.5 text-xs transition ${extraClass}`;
+            input.addEventListener('change', (e) => onChangeCallback(e.target.value));
+            td.appendChild(input);
+            return td;
+        }
+
+        function renderGanttMatrixTable() {
+            const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+            const key = getYearMonthKey();
+
+            const monthHeaderTh = document.getElementById('monthHeaderTh');
+            if (monthHeaderTh) {
+                monthHeaderTh.colSpan = daysInMonth;
+                monthHeaderTh.textContent = `${currentMonth}월 타임라인`;
+            }
+
+            const headerRow2 = document.getElementById('headerRow2');
+            if (headerRow2) {
+                headerRow2.innerHTML = `
+                    <th class="border-r border-slate-400 no-print py-1 text-[11px] text-slate-500">삭제</th>
+                    <th class="border-r border-slate-400 py-1 text-slate-700">구분</th>
+                    <th class="border-r border-slate-400 py-1 text-slate-700">세부 내용</th>
+                    <th class="border-r border-slate-400 py-1 text-slate-700">예상목표</th>
+                    <th class="border-r border-slate-400 py-1 text-slate-700">일정</th>
+                `;
+
+                const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
+
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dateObj = new Date(currentYear, currentMonth - 1, day);
+                    const dayOfWeek = dateObj.getDay();
+                    const holidayName = getHolidayName(currentYear, currentMonth, day);
+
+                    let textColor = 'text-slate-800';
+                    let dayBg = '';
+                    if (dayOfWeek === 0 || holidayName) { textColor = 'text-rose-600 font-extrabold'; dayBg = 'bg-rose-50/60'; }
+                    else if (dayOfWeek === 6) { textColor = 'text-blue-600 font-bold'; dayBg = 'bg-blue-50/60'; }
+
+                    const th = document.createElement('th');
+                    th.className = `border-r border-slate-400 p-1 min-w-[28px] max-w-[34px] font-bold ${textColor} ${dayBg}`;
+                    th.innerHTML = `
+                        <div class="text-[12px] leading-none">${day}일</div>
+                        <div class="text-[9px] opacity-80 mt-0.5 truncate">${holidayName ? holidayName.substring(0,2) : weekDays[dayOfWeek]}</div>
+                    `;
+                    headerRow2.appendChild(th);
+                }
+            }
+
+            const tbody = document.getElementById('taskTbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const monthTasks = tasksData[key] || [];
+
+            monthTasks.forEach((task) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition border-b border-slate-300';
+
+                const tdDel = document.createElement('td');
+                tdDel.className = 'border-r border-slate-300 p-1 text-center no-print';
+                tdDel.innerHTML = `
+                    <button onclick="removeTaskById(${task.id})" class="text-slate-400 hover:text-rose-600 p-1 transition" title="행 삭제">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                `;
+                tr.appendChild(tdDel);
+
+                const isCompleted = task.status === '완료';
+                const isImportant = task.isImportant;
+                const customStyleClass = `${isCompleted ? 'line-through text-slate-400' : ''} ${isImportant ? 'text-rose-600 font-extrabold' : ''}`;
+
+                tr.appendChild(createInputTd(task.category || '', (v) => updateTaskFieldById(task.id, 'category', v), '구분...', customStyleClass));
+                tr.appendChild(createInputTd(task.detail || '', (v) => updateTaskFieldById(task.id, 'detail', v), '세부 내용...', customStyleClass));
+                tr.appendChild(createInputTd(task.target || '', (v) => updateTaskFieldById(task.id, 'target', v), '목표기한...'));
+
+                const tdSched = document.createElement('td');
+                tdSched.className = 'border-r border-slate-300 p-1 text-center text-slate-400';
+                tr.appendChild(tdSched);
+
+                const styleConfig = getTaskColorClass(task);
+
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const tdDay = document.createElement('td');
+                    const isActive = task.days && task.days.includes(day);
+
+                    const dateObj = new Date(currentYear, currentMonth - 1, day);
+                    const dayOfWeek = dateObj.getDay();
+                    const holidayName = getHolidayName(currentYear, currentMonth, day);
+                    let weekendBg = '';
+                    if (dayOfWeek === 0 || holidayName) weekendBg = 'bg-red-50/40';
+                    else if (dayOfWeek === 6) weekendBg = 'bg-blue-50/40';
+
+                    tdDay.className = `day-cell border-r border-slate-300 p-0 text-center align-middle h-8 ${weekendBg}`;
+
+                    if (isActive) {
+                        tdDay.innerHTML = `
+                            <div class="w-full h-full flex items-center justify-center">
+                                <div class="w-4 h-4 md:w-5 md:h-5 ${styleConfig.bg} rounded-sm shadow-sm flex items-center justify-center text-white text-[10px]">
+                                    ■
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        tdDay.innerHTML = `<div class="w-full h-full"></div>`;
+                    }
+
+                    tdDay.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        isMouseDown = true;
+                        toggleStateTo = !isActive;
+                        toggleTaskDay(task.id, day, toggleStateTo);
+                    });
+
+                    tdDay.addEventListener('mouseenter', () => {
+                        if (isMouseDown) {
+                            toggleTaskDay(task.id, day, toggleStateTo);
+                        }
+                    });
+
+                    tr.appendChild(tdDay);
+                }
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateTaskFieldById(taskId, field, value) {
+            const key = getYearMonthKey();
+            if (!tasksData[key]) return;
+
+            const task = tasksData[key].find(t => t.id === taskId);
+            if (task) {
+                task[field] = value;
+                saveData();
+                renderView();
+            }
+        }
+
+        function toggleImportantById(taskId) {
+            const key = getYearMonthKey();
+            if (!tasksData[key]) return;
+
+            const task = tasksData[key].find(t => t.id === taskId);
+            if (task) {
+                task.isImportant = !task.isImportant;
+                saveData();
+                renderView();
+            }
+        }
+
+        function toggleTaskDay(taskId, day, state) {
+            const key = getYearMonthKey();
+            if (!tasksData[key]) return;
+
+            const task = tasksData[key].find(t => t.id === taskId);
+            if (task) {
+                if (!task.days) task.days = [];
+                if (state) {
+                    if (!task.days.includes(day)) task.days.push(day);
+                } else {
+                    task.days = task.days.filter(d => d !== day);
+                }
+                saveData();
+                renderView();
+            }
+        }
+
+        function removeTaskById(taskId) {
+            const key = getYearMonthKey();
+            if (!tasksData[key]) return;
+
+            tasksData[key] = tasksData[key].filter(t => t.id !== taskId);
+            saveData();
+            renderView();
+        }
+
+        function addNewTaskRow() {
+            openAddTaskModal(1);
+        }
+
+        function openAddTaskModal(day = 1) {
+            editingTaskId = null;
+            document.getElementById('modalTitle').innerHTML = `<i data-lucide="calendar-plus" class="w-5 h-5 text-emerald-600"></i> 일정 상세 등록`;
+            document.getElementById('modalStartDay').value = day;
+            document.getElementById('modalEndDay').value = day;
+            document.getElementById('modalCategory').value = '';
+            document.getElementById('modalDetail').value = '';
+            document.getElementById('modalTarget').value = '';
+            document.getElementById('modalStatus').value = '진행중';
+            document.getElementById('modalIsImportant').checked = false;
+
+            document.getElementById('taskModal').classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function editTaskModal(taskId) {
+            const key = getYearMonthKey();
+            const monthTasks = tasksData[key] || [];
+            const task = monthTasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            editingTaskId = taskId;
+            document.getElementById('modalTitle').innerHTML = `<i data-lucide="edit" class="w-5 h-5 text-emerald-600"></i> 일정 수정`;
+            
+            const startDay = task.days && task.days.length > 0 ? Math.min(...task.days) : 1;
+            const endDay = task.days && task.days.length > 0 ? Math.max(...task.days) : startDay;
+
+            document.getElementById('modalStartDay').value = startDay;
+            document.getElementById('modalEndDay').value = endDay;
+            document.getElementById('modalCategory').value = task.category || '';
+            document.getElementById('modalDetail').value = task.detail || '';
+            document.getElementById('modalTarget').value = task.target || '';
+            document.getElementById('modalStatus').value = task.status || '진행중';
+            document.getElementById('modalIsImportant').checked = !!task.isImportant;
+
+            document.getElementById('taskModal').classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function closeTaskModal() {
+            document.getElementById('taskModal').classList.add('hidden');
+        }
+
+        function handleModalSubmit(event) {
+            event.preventDefault();
+
+            const startDay = parseInt(document.getElementById('modalStartDay').value) || 1;
+            const endDay = parseInt(document.getElementById('modalEndDay').value) || startDay;
+            const category = document.getElementById('modalCategory').value.trim();
+            const detail = document.getElementById('modalDetail').value.trim();
+            const target = document.getElementById('modalTarget').value.trim();
+            const status = document.getElementById('modalStatus').value;
+            const isImportant = document.getElementById('modalIsImportant').checked;
+
+            const daysArr = [];
+            const fromDay = Math.min(startDay, endDay);
+            const toDay = Math.max(startDay, endDay);
+            for (let d = fromDay; d <= toDay; d++) {
+                daysArr.push(d);
+            }
+
+            const key = getYearMonthKey();
+            if (!tasksData[key]) tasksData[key] = [];
+
+            if (editingTaskId) {
+                const task = tasksData[key].find(t => t.id === editingTaskId);
+                if (task) {
+                    task.category = category;
+                    task.detail = detail;
+                    task.target = target;
+                    task.status = status;
+                    task.isImportant = isImportant;
+                    task.days = daysArr;
+                }
+            } else {
+                const newTask = {
+                    id: Date.now(),
+                    category: category || '일반업무',
+                    detail: detail,
+                    target: target,
+                    status: status,
+                    isImportant: isImportant,
+                    days: daysArr
+                };
+                tasksData[key].push(newTask);
+            }
+
+            saveData();
+            renderView();
+            closeTaskModal();
+        }
+
+        // Custom Reset Modal Handlers
+        function openResetModal() {
+            document.getElementById('resetModalText').textContent = `${currentYear}년 ${currentMonth}월의 모든 일정을 삭제하시겠습니까?`;
+            document.getElementById('resetModal').classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function closeResetModal() {
+            document.getElementById('resetModal').classList.add('hidden');
+        }
+
+        function confirmResetCurrentMonth() {
+            const key = getYearMonthKey();
+            tasksData[key] = [];
+            saveData();
+            renderView();
+            closeResetModal();
+        }
+
+        function setupEventListeners() {
+            window.addEventListener('mouseup', () => { isMouseDown = false; });
+
+            document.getElementById('yearSelect').addEventListener('change', (e) => {
+                currentYear = parseInt(e.target.value);
+                renderView();
+            });
+
+            document.getElementById('monthSelect').addEventListener('change', (e) => {
+                currentMonth = parseInt(e.target.value);
+                renderView();
+            });
+
+            document.getElementById('prevMonthBtn').addEventListener('click', () => {
+                if (currentMonth === 1) { currentMonth = 12; currentYear--; }
+                else { currentMonth--; }
+                document.getElementById('yearSelect').value = currentYear;
+                document.getElementById('monthSelect').value = currentMonth;
+                renderView();
+            });
+
+            document.getElementById('nextMonthBtn').addEventListener('click', () => {
+                if (currentMonth === 12) { currentMonth = 1; currentYear++; }
+                else { currentMonth++; }
+                document.getElementById('yearSelect').value = currentYear;
+                document.getElementById('monthSelect').value = currentMonth;
+                renderView();
+            });
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
